@@ -1,0 +1,70 @@
+pipeline {
+  agent {
+    kubernetes {
+      yaml '''
+        apiVersion: v1
+        kind: Pod
+        spec:
+          containers:
+          - name: kubectl
+            image: joshendriks/alpine-k8s
+            command:
+          - /bin/cat
+          tty: true 
+          - name: kaniko
+            image: gcr.io/kaniko-project/executor:debug
+            command:
+            - sleep
+            args:
+            - 1d
+            volumeMounts:
+            - name: kaniko-secret
+              mountPath: /kaniko/.docker
+          restartPolicy: Never
+          volumes:
+          - name: kaniko-secret
+            secret:
+                secretName: dockercred
+                items:
+                - key: .dockerconfigjson
+                  path: config.json
+        '''
+    }
+  }
+      stages {
+        stage('SCM') {
+          steps {
+              git branch: 'master', changelog: false, poll: false, url: 'https://github.com/gngrgizemm/HelloWorld.git'
+            }   
+        }
+               
+        stage('Build Image') {
+          steps {
+              container('kaniko') {
+              sh '''
+              /kaniko/executor --context `pwd`/app/ \
+                               --dockerfile `pwd`/app/Dockerfile \
+                               --destination=gungorgizem/hello-world:${BUILD_NUMBER} \
+                               --insecure \
+                               --skip-tls-verify
+              '''
+            }
+          }
+        }
+        stage('Deploy') {
+          steps {
+              container('kubectl') {
+                  withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')]) {
+                      sh '''
+                      cat $KUBECONFIG > `pwd`/kubeconfig
+                      export KUBECONFIG=`pwd`/kubeconfig
+                      sed -i "s/<TAG>/${BUILD_NUMBER}/" ./app/deployment.yaml
+                      kubectl apply -f ./app/deployment.yaml -n gizemce
+                      kubectl rollout status deployment hello-world -n gizemce --timeout=60s
+                      '''
+              }
+            }  
+          }
+        }
+    }
+}
