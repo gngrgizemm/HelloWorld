@@ -1,0 +1,23 @@
+---
+fullnameOverride: {{ jenkins.deployment.name }}
+
+controller:
+  installPlugins:
+    - configuration-as-code:latest
+    - kubernetes:latest
+    - workflow-aggregator:latest
+    - git:latest
+
+persistence:
+  enabled: true
+  accessMode: ReadWriteOnce
+  storageClass: default
+  size: 8Gi
+
+resources:
+  requests:
+    cpu: 0.5
+    memory: 1Gi
+  limits:
+    cpu: 1
+    memory: 2Gi

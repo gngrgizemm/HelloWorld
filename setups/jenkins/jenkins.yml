@@ -1,0 +1,7 @@
+---
+- hosts: aks
+  roles:
+    - setup-jenkins
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+
